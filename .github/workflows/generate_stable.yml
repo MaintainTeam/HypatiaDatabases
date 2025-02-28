@@ -158,6 +158,7 @@ jobs:
           cp "${{ github.workspace }}/raw/hypatia-sha256-bloom.bin" "${{ github.workspace }}/deploy"
           cp "${{ github.workspace }}/various/generation_report.html" "${{ github.workspace }}/deploy"
           cp "${{ github.workspace }}/various/database_generation_ci.txt" "${{ github.workspace }}/deploy"
+          cp "${{ github.workspace }}/static/template.html" "${{ github.workspace }}/deploy"
 
           date > "${{ github.workspace }}/deploy/generation_time.html"
       
