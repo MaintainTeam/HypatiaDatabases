@@ -1,0 +1,170 @@
+name: Generate Stable Database
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 1 * * *'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions: write-all
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependency Setup
+        run: |
+          sudo apt-get update -y
+          sudo apt install maven unzip git dos2unix -y
+
+      - name: Start ClamAV daemon clamd
+        uses: toblux/start-clamd-github-action@v0.2.1
+        with:
+          db_main: true
+          db_daily: true
+      
+      - name: Organize Directories & Static Sources
+        run: |
+          mkdir -p "${{ github.workspace }}/raw/"
+          mkdir -p "${{ github.workspace }}/exclusions/"
+          mkdir -p "${{ github.workspace }}/various/"
+
+          cp ${{ github.workspace }}/static/* "${{ github.workspace }}/raw/"
+      
+      - name: DATABASE PREPARATION - ClamAV
+        run: |
+          mkdir /tmp/mss
+          cd /tmp/mss
+          cp /var/lib/clamav/main.c*d .
+          cp /var/lib/clamav/daily.c*d .
+          sigtool -u main.c*d
+          sigtool -u daily.c*d
+
+          mv /tmp/mss/*.fp* "${{ github.workspace }}/exclusions/"
+          mv /tmp/mss/*.hsb "${{ github.workspace }}/raw/"
+          mv /tmp/mss/*.hdb "${{ github.workspace }}/raw/"
+          mv /tmp/mss/*.hdu "${{ github.workspace }}/raw/"
+          mv /tmp/mss/*.hsu "${{ github.workspace }}/raw/"
+
+      - name: DATABASE PREPARATION - ESET
+        run: |
+          git clone https://github.com/eset/malware-ioc "${{ github.workspace }}/various/eset-sources/"
+          processHashes() {
+            local name=$(basename $1);
+            if [ -f $1/samples.$2 ]; then
+              dos2unix $1/samples.$2
+              while IFS= read -r line
+              do
+                echo "$line" >> "${{ github.workspace }}/various/eset.$2";
+              done < "$1/samples.$2";
+            fi;
+          }
+          export -f processHashes;
+
+          find "${{ github.workspace }}/various/eset-sources/" -maxdepth 2 -mindepth 1 -type d -exec bash -c 'processHashes "{}" md5 hdb' \;
+          find "${{ github.workspace }}/various/eset-sources/" -maxdepth 2 -mindepth 1 -type d -exec bash -c 'processHashes "{}" sha1 hsb' \;
+          find "${{ github.workspace }}/various/eset-sources/" -maxdepth 2 -mindepth 1 -type d -exec bash -c 'processHashes "{}" sha256 hsb' \;
+          cp "${{ github.workspace }}/various/eset.md5" "${{ github.workspace }}/raw"
+          cp "${{ github.workspace }}/various/eset.sha1" "${{ github.workspace }}/raw"
+          cp "${{ github.workspace }}/various/eset.sha256" "${{ github.workspace }}/raw"
+
+      - name: DATABASE PREPARATION - Signature-Base
+        run: |
+          wget https://raw.githubusercontent.com/Neo23x0/signature-base/refs/heads/master/iocs/hash-iocs.txt -O "${{ github.workspace }}/raw/signature-base.loki"
+          wget https://raw.githubusercontent.com/Neo23x0/signature-base/refs/heads/master/iocs/otx-hash-iocs.txt -O "${{ github.workspace }}/raw/signature-base-otx.loki"
+
+      - name: DATABASE PREPARATION - ThreatView
+        run: |
+          wget "https://threatview.io/Downloads/MD5-HASH-ALL.txt" -O - | sed 's/MD5 of //' >> "${{ github.workspace }}/various/threatview.md5"
+          wget "https://threatview.io/Downloads/SHA-HASH-FEED.txt" -O - >> "${{ github.workspace }}/various/threatview.sha1"
+
+          sort -u -o "${{ github.workspace }}/raw/threatview.md5" "${{ github.workspace }}/various/threatview.md5"
+          sort -u -o "${{ github.workspace }}/raw/threatview.sha1" "${{ github.workspace }}/various/threatview.sha1"
+
+      - name: DATABASE PREPARATION - ThreatFox
+        run: |
+          wget "https://threatfox.abuse.ch/export/csv/sha256/full/" -O "${{ github.workspace }}/various/download_threatfox.zip"
+          unzip "${{ github.workspace }}/various/download_threatfox.zip" -d "${{ github.workspace }}/various/"
+          tail -n +10 "${{ github.workspace }}/various/full_sha256.csv" | awk '{ print $4 } ' | sed 's/^"//' | sed 's/",$//' > "${{ github.workspace }}/raw/threatfox.sha256"
+
+      - name: DATABASE PREPARATION - MalwareBazaar
+        run: |
+          wget "https://bazaar.abuse.ch/export/txt/sha256/full/" -O "${{ github.workspace }}/various/download_bazaar.zip"
+          unzip "${{ github.workspace }}/various/download_bazaar.zip" -d "${{ github.workspace }}/various/"
+          mv "${{ github.workspace }}/various/full_sha256.txt" "${{ github.workspace }}/raw/malware_bazaar.sha256"
+
+      - name: DATABASE PREPARATION - CyberCure
+        run: |
+          wget "https://api.cybercure.ai/feed/get_hash?type=csv" -O - | sed 's/,/\n/g' >> "${{ github.workspace }}/various/cybercure.md5"
+          sort -u -o "${{ github.workspace }}/raw/cybercure.md5" "${{ github.workspace }}/various/cybercure.md5"
+
+      - name: DATABASE PREPARATION - Stalkerware
+        run: |
+          wget "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/refs/heads/master/samples.csv" -O "${{ github.workspace }}/various/stalkerware.csv"
+          while IFS=, read -r col1SHA col2Package col3Certificate col4Version col5Name
+          do
+            if [ -n "$col1SHA" ] && [ -n "$col5Name" ]; then
+              echo "$col1SHA:0:$col5Name" >> "${{ github.workspace }}/raw/stalkerware.hsb";
+            fi;
+          done < "${{ github.workspace }}/various/stalkerware.csv";
+          sed -i '1d' "${{ github.workspace }}/raw/stalkerware.hsb";
+
+      - name: DATABASE PREPARATION - Sanesecurity
+        run: |
+          mkdir -p "${{ github.workspace }}/various/sanesecurity-real/"
+          cd "${{ github.workspace }}/various/sanesecurity-real/"
+
+          rsync -av rsync://rsync.sanesecurity.net/sanesecurity .
+
+          for f in *.hsb; do
+            echo "" >> "${{ github.workspace }}/raw/sanesecurity-$f";
+            cat "$f" >> "${{ github.workspace }}/raw/sanesecurity-$f";
+            sort -u -o "${{ github.workspace }}/raw/sanesecurity-$f" "${{ github.workspace }}/raw/sanesecurity-$f";
+          done
+
+          for f in *.hdb; do
+            echo "" >> "${{ github.workspace }}/raw/sanesecurity-$f";
+            cat "$f" >> "${{ github.workspace }}/raw/sanesecurity-$f";
+            sort -u -o "${{ github.workspace }}/raw/sanesecurity-$f" "${{ github.workspace }}/raw/sanesecurity-$f";
+          done
+
+            rm -v ${{ github.workspace }}/raw/sanesecurity-crdfam.clamav.hdb ${{ github.workspace }}/raw/sanesecurity-doppelstern.hdb ${{ github.workspace }}/raw/sanesecurity-malware.expert.hdb
+
+      - name: GENERATE HYPATIA SIGNATURE DATABASES 
+        run: |
+          mvn -q -B --no-transfer-progress clean compile exec:java -Dexec.mainClass="org.maintainteam.hypatiadatabases.App" -Dexec.args="${{ github.workspace }}/raw/" > "${{ github.workspace }}/various/generation_report.txt"
+          cat "${{ github.workspace }}/various/generation_report.txt"
+          echo "<pre>" >> "${{ github.workspace }}/various/generation_report.html"
+          cat "${{ github.workspace }}/various/generation_report.txt" >> "${{ github.workspace }}/various/generation_report.html"
+          echo "</pre>" >> "${{ github.workspace }}/various/generation_report.html"
+
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">"${{ github.workspace }}/various/database_generation_ci.txt"
+          
+      - name: Debug Info
+        run: |
+          ls -hla "${{ github.workspace }}/various/"
+          ls -hla "${{ github.workspace }}/raw/"
+          ls -hla "${{ github.workspace }}/exclusions/"
+          tree -a "${{ github.workspace }}"
+
+      - name: Select files to use
+        run: |
+          mkdir -p "${{ github.workspace }}/deploy"
+          cp "${{ github.workspace }}/raw/hypatia-domains-bloom.bin" "${{ github.workspace }}/deploy"
+          cp "${{ github.workspace }}/raw/hypatia-md5-bloom.bin" "${{ github.workspace }}/deploy"
+          cp "${{ github.workspace }}/raw/hypatia-sha1-bloom.bin" "${{ github.workspace }}/deploy"
+          cp "${{ github.workspace }}/raw/hypatia-sha256-bloom.bin" "${{ github.workspace }}/deploy"
+          cp "${{ github.workspace }}/various/generation_report.html" "${{ github.workspace }}/deploy"
+          cp "${{ github.workspace }}/various/database_generation_ci.txt" "${{ github.workspace }}/deploy"
+
+          date > "${{ github.workspace }}/deploy/generation_time.html"
+      
+      - name: Deploy to unsigned branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: "${{ github.workspace }}/deploy"
+          force_orphan: true
+          publish_branch: unsigned
