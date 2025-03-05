@@ -3,7 +3,7 @@ name: Generate Stable Database
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 1 * * *'
+    - cron: '0 1 */2 * *'
 
 jobs:
   generate:
