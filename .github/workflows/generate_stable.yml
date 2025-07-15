@@ -73,7 +73,6 @@ jobs:
       - name: DATABASE PREPARATION - Signature-Base
         run: |
           wget https://raw.githubusercontent.com/Neo23x0/signature-base/refs/heads/master/iocs/hash-iocs.txt -O "${{ github.workspace }}/raw/signature-base.loki"
-          wget https://raw.githubusercontent.com/Neo23x0/signature-base/refs/heads/master/iocs/otx-hash-iocs.txt -O "${{ github.workspace }}/raw/signature-base-otx.loki"
 
       - name: DATABASE PREPARATION - ThreatView
         run: |
