@@ -30,6 +30,7 @@ jobs:
           mkdir -p "${{ github.workspace }}/raw/"
           mkdir -p "${{ github.workspace }}/exclusions/"
           mkdir -p "${{ github.workspace }}/various/"
+          mkdir -p "${{ github.workspace }}/domains/"
 
           cp ${{ github.workspace }}/static/* "${{ github.workspace }}/raw/"
       
@@ -131,21 +132,26 @@ jobs:
 
             rm -v ${{ github.workspace }}/raw/sanesecurity-crdfam.clamav.hdb ${{ github.workspace }}/raw/sanesecurity-doppelstern.hdb ${{ github.workspace }}/raw/sanesecurity-malware.expert.hdb
 
+      - name: DATABASE PREPERATION - Divest Domains
+        run: wget "divested.dev/hosts-domains" -O "${{ github.workspace }}/domains/divested.txt"
+
       - name: GENERATE HYPATIA SIGNATURE DATABASES 
         run: |
-          mvn -q -B --no-transfer-progress clean compile exec:java -Dexec.mainClass="org.maintainteam.hypatiadatabases.App" -Dexec.args="${{ github.workspace }}/raw/" > "${{ github.workspace }}/various/generation_report.txt"
+          mvn -q -B --no-transfer-progress clean compile exec:java -Dexec.mainClass="org.maintainteam.hypatiadatabases.App" -Dexec.args="${{ github.workspace }}/raw/ ${{ github.workspace }}/domains/divested.txt" > "${{ github.workspace }}/various/generation_report.txt"
           cat "${{ github.workspace }}/various/generation_report.txt"
           echo "<pre>" >> "${{ github.workspace }}/various/generation_report.html"
           cat "${{ github.workspace }}/various/generation_report.txt" >> "${{ github.workspace }}/various/generation_report.html"
           echo "</pre>" >> "${{ github.workspace }}/various/generation_report.html"
 
           echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">"${{ github.workspace }}/various/database_generation_ci.txt"
+        
           
       - name: Debug Info
         run: |
           ls -hla "${{ github.workspace }}/various/"
           ls -hla "${{ github.workspace }}/raw/"
           ls -hla "${{ github.workspace }}/exclusions/"
+          ls -hla "${{ github.workspace }}/domains/"
           tree -a "${{ github.workspace }}"
 
       - name: Select files to use
