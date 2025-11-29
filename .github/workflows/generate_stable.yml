@@ -136,8 +136,8 @@ jobs:
         run: |
           cd "${{ github.workspace }}/various"
           git clone https://github.com/avast/covid-19-ioc.git
-          cd "covid-19-ioc"
-          tail -n +2 */*.csv | sed 's/,/ , /' | awk '{ print $1 }' | sort -u  >> "${{ github.workspace }}/raw/avast-covid19.sha256"
+          cd "covid-19-ioc/datasets/android"
+          tail -n +2 *.csv | sed 's/,/ , /' | awk '{ print $1 }' | sort -u  >> "${{ github.workspace }}/raw/avast-covid19.sha256"
 
       - name: DATABASE PREPERATION - Divest Domains
         run: wget "divested.dev/hosts-domains" -O "${{ github.workspace }}/domains/divested.txt"
