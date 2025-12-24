@@ -3,7 +3,7 @@ This repository contains the database files, the generation scripts and the web 
 ## Structure
 This is a manual mirror and backup generator of https://codeberg.org/MaintainTeam/HypatiaDatabases which generates the default databases.
 
-This repo has several branches. The `main` branch contains the [code](.github/workflows/generate_stable.yml) used to generate the databases. The `unsigned` branch contains the databases after they generated, before they are signed. From here, this branch is checked out by a self-hosted CI and signed with our key, and pushed to the `gh-pages` branch where it get's deployed.
+This repo has several branches. The `main` branch contains the [code](.github/workflows/generate_stable.yml) used to generate the databases. The `unsigned` branch contains the generated databases, before they are signed. From here, this branch is checked out by a self-hosted CI and signed with our key, and pushed to the `gh-pages` branch where it is deployed.
 ## Databases
 ### General Sources
 - [ESET Indicators of Compromise (IOC's)](https://github.com/eset/malware-ioc)
@@ -19,14 +19,14 @@ This repo has several branches. The `main` branch contains the [code](.github/wo
 ### Domain Sources
 - Divested Computing Group's [Domain Blocklists](https://divested.dev/pages/dnsbl)
 ## Generation
-The databases are generated on GitHub and Codebergs CI. We utilize a fork of Divest Mobile's [database generator](./src/main/java/org/maintainteam/hypatiadatabases/App.java) to sort the database files, aggregate the hashes, and then create Bloom Filters from them. Then GitHub/Codeberg Pages are used to publish the files online.
+The databases are generated on GitHub's and Codeberg's CI. We utilize a fork of Divest Mobile's [database generator](./src/main/java/org/maintainteam/hypatiadatabases/App.java) to sort the database files, aggregate the hashes, and then create Bloom Filters from them. Then, GitHub/Codeberg Pages are used to publish the files online.
 ## Contribution
 **Development work is done on GitHub, Codeberg is only a mirror.**
 
-We are always looking for new sources to add to our databases, so if you come across one that you believe could work, please either create an issue with the link to the source, and it's copyright, or if you can, add it to the GitHub actions file. 
+We are always looking for new sources to add to our databases, so if you come across one that you believe could work, please either create an issue with the link to the source, and it's copyright, or if you can, submit a pull request to add it to the GitHub actions file. 
 
-If adding a new source the general proccess is:
+If adding a new source, the general proccess is:
 1. Download the source to the `/various/vendor` directory.
-2. Proccess the file(s) to remove the hashes, and if applicable the malware description.
-3. Combine the name and hash (`hash:0:name/description`) and add them to a file with the appropirate extension.
-4. Move this file to the `/raw/vendor` directory.
+2. Proccess the file(s) to extract the hashes, and if applicable the malware description.
+3. Combine the name and hash (`hash:0:name/description`) and add them to a file with the appropriate extension.
+4. Move the resulting file to the `/raw/vendor` directory.
