@@ -95,10 +95,10 @@ jobs:
           unzip "${{ github.workspace }}/various/download_bazaar.zip" -d "${{ github.workspace }}/various/"
           mv "${{ github.workspace }}/various/full_sha256.txt" "${{ github.workspace }}/raw/malware_bazaar.sha256"
 
-      - name: DATABASE PREPARATION - CyberCure
-        run: |
-          wget "https://api.cybercure.ai/feed/get_hash?type=csv" -O - | sed 's/,/\n/g' >> "${{ github.workspace }}/various/cybercure.md5"
-          sort -u -o "${{ github.workspace }}/raw/cybercure.md5" "${{ github.workspace }}/various/cybercure.md5"
+     # - name: DATABASE PREPARATION - CyberCure
+     #   run: |
+     #     wget "https://api.cybercure.ai/feed/get_hash?type=csv" -O - | sed 's/,/\n/g' >> "${{ github.workspace }}/various/cybercure.md5"
+     #     sort -u -o "${{ github.workspace }}/raw/cybercure.md5" "${{ github.workspace }}/various/cybercure.md5"
 
       - name: DATABASE PREPARATION - Stalkerware
         run: |
